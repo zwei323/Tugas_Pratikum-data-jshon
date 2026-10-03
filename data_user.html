@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Users JSON</title>
+
+    <style>
+        body{
+            font-family: Arial, Helvetica, sans-serif;
+            background:#f5f5f5;
+            margin:30px;
+        }
+
+        h2{
+            text-align:center;
+        }
+
+        table{
+            width:100%;
+            border-collapse:collapse;
+            background:#fff;
+        }
+
+        th{
+            background:#0d6efd;
+            color:#fff;
+            padding:10px;
+            border:1px solid #ddd;
+        }
+
+        td{
+            padding:8px;
+            border:1px solid #ddd;
+        }
+
+        tr:nth-child(even){
+            background:#f9f9f9;
+        }
+
+        tr:hover{
+            background:#eef5ff;
+        }
+
+        .center{
+            text-align:center;
+        }
+
+        .loading{
+            text-align:center;
+            font-weight:bold;
+            color:#0d6efd;
+        }
+
+        .toolbar{
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            margin-bottom:15px;
+        }
+
+        .toolbar button,
+        form button{
+            border:0;
+            border-radius:5px;
+            color:#fff;
+            cursor:pointer;
+            font-weight:bold;
+            padding:10px 15px;
+        }
+
+        .tambah{background:#198754;}
+        .edit{background:#fd7e14;}
+        .hapus{background:#dc3545;}
+
+        .form-user{
+            background:#fff;
+            border:1px solid #ddd;
+            border-radius:8px;
+            display:none;
+            margin-bottom:20px;
+            padding:20px;
+        }
+
+        .form-user h3{margin-top:0;}
+
+        .form-grid{
+            display:grid;
+            gap:12px;
+            grid-template-columns:1fr 1fr;
+        }
+
+        .form-grid label{font-weight:bold;}
+
+        .form-grid input{
+            border:1px solid #ccc;
+            border-radius:4px;
+            display:block;
+            margin-top:5px;
+            padding:10px;
+            width:100%;
+        }
+
+        .form-actions{margin-top:15px;}
+        .simpan{background:#0d6efd;}
+        .batal{background:#6c757d;}
+        .aksi{white-space:nowrap;}
+
+        @media (max-width:600px){
+            .toolbar{align-items:stretch; flex-direction:column; gap:10px;}
+            .form-grid{grid-template-columns:1fr;}
+        }
+    </style>
+
+</head>
+<body>
+
+<h2>Data Users dari JSON API</h2>
+
+<div class="toolbar">
+    <span>Kelola data pengguna</span>
+    <button class="tambah" type="button" onclick="bukaForm()">+ Tambah User</button>
+</div>
+
+<form id="formUser" class="form-user">
+    <h3 id="judulForm">Tambah User</h3>
+    <div class="form-grid">
+        <label>
+            Nama
+            <input type="text" id="nama" required placeholder="Masukkan nama">
+        </label>
+        <label>
+            Email
+            <input type="email" id="email" required placeholder="nama@email.com">
+        </label>
+        <label>
+            Jalan
+            <input type="text" id="street" placeholder="Nama jalan">
+        </label>
+        <label>
+            Detail Alamat
+            <input type="text" id="suite" placeholder="Contoh: No. 10 / Blok A">
+        </label>
+        <label>
+            Kota
+            <input type="text" id="city" placeholder="Nama kota">
+        </label>
+        <label>
+            Kode Pos
+            <input type="text" id="zipcode" placeholder="Kode pos">
+        </label>
+    </div>
+    <div class="form-actions">
+        <button class="simpan" type="submit">Simpan</button>
+        <button class="batal" type="button" onclick="tutupForm()">Batal</button>
+    </div>
+</form>
+
+<table>
+    <thead>
+        <tr>
+            <th width="80">NO / ID</th>
+            <th>Nama</th>
+            <th>Email</th>
+            <th>Alamat</th>
+            <th>Aksi</th>
+        </tr>
+    </thead>
+
+    <tbody id="hasil">
+        <tr>
+            <td colspan="5" class="loading">Memuat data...</td>
+        </tr>
+    </tbody>
+</table>
+
+<script>
+
+let users = [];
+let userIdBerikutnya = 1;
+let idSedangDiedit = null;
+
+const endpoint = window.location.protocol === "file:"
+    ? "http://localhost/tugas1/api.php"
+    : "api.php";
+
+fetch(endpoint)
+.then(response => {
+    if (!response.ok) {
+        throw new Error("Server mengembalikan status " + response.status);
+    }
+    return response.json();
+})
+.then(data => {
+    if (!Array.isArray(data)) {
+        throw new Error("Format data JSON tidak valid");
+    }
+
+    users = data.map(item => ({
+        id: Number(item.id),
+        nama: item.nama || item.name || "Tanpa nama",
+        email: item.email || "-",
+        alamat: item.address || { street: "", suite: "", city: "", zipcode: "" }
+    }));
+    userIdBerikutnya = users.length + 1;
+    tampilkanUsers();
+
+})
+.catch(error=>{
+
+    document.getElementById("hasil").innerHTML=
+    `<tr>
+        <td colspan="5" style="color:red;text-align:center">
+            Gagal mengambil data JSON: ${error.message}
+        </td>
+    </tr>`;
+
+    console.log(error);
+
+});
+
+function tampilkanUsers(){
+    let html = "";
+
+    users.forEach((user, index) => {
+        html += `
+        <tr>
+            <td class="center">${user.id}</td>
+            <td>${user.nama}</td>
+            <td>${user.email}</td>
+            <td>${[user.alamat.street, user.alamat.suite, user.alamat.city, user.alamat.zipcode].filter(Boolean).join(", ") || "Alamat tidak tersedia"}</td>
+            <td class="aksi">
+                <button class="edit" type="button" onclick="editUser(${user.id})">Edit</button>
+                <button class="hapus" type="button" onclick="hapusUser(${user.id})">Hapus</button>
+            </td>
+        </tr>`;
+    });
+
+    document.getElementById("hasil").innerHTML = html;
+}
+
+function bukaForm(user = null){
+    const form = document.getElementById("formUser");
+    idSedangDiedit = user ? user.id : null;
+    document.getElementById("judulForm").innerText = user ? "Edit User" : "Tambah User";
+    document.getElementById("nama").value = user ? user.nama : "";
+    document.getElementById("email").value = user ? user.email : "";
+    document.getElementById("street").value = user ? user.alamat.street : "";
+    document.getElementById("suite").value = user ? user.alamat.suite : "";
+    document.getElementById("city").value = user ? user.alamat.city : "";
+    document.getElementById("zipcode").value = user ? user.alamat.zipcode : "";
+    form.style.display = "block";
+    document.getElementById("nama").focus();
+}
+
+function tutupForm(){
+    idSedangDiedit = null;
+    document.getElementById("formUser").reset();
+    document.getElementById("formUser").style.display = "none";
+}
+
+function editUser(id){
+    const user = users.find(item => item.id === id);
+    if (user) bukaForm(user);
+}
+
+function hapusUser(id){
+    const user = users.find(item => item.id === id);
+    if (!user || !confirm("Hapus user " + user.nama + "?")) return;
+
+    fetch(endpoint + "?id=" + encodeURIComponent(id), { method: "DELETE" })
+        .then(periksaRespons)
+        .then(() => {
+            users = users.filter(item => item.id !== id);
+            tampilkanUsers();
+        })
+        .catch(tampilkanError);
+}
+
+document.getElementById("formUser").addEventListener("submit", async function(event){
+    event.preventDefault();
+    const nama = document.getElementById("nama").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const alamat = {
+        street: document.getElementById("street").value.trim(),
+        suite: document.getElementById("suite").value.trim(),
+        city: document.getElementById("city").value.trim(),
+        zipcode: document.getElementById("zipcode").value.trim()
+    };
+
+    try {
+        const method = idSedangDiedit === null ? "POST" : "PUT";
+        const payload = idSedangDiedit === null
+            ? { nama, email, ...alamat }
+            : { id: idSedangDiedit, nama, email, ...alamat };
+        const response = await fetch(endpoint, {
+            method,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        const user = await periksaRespons(response);
+
+        if (idSedangDiedit === null) {
+            users.push({ ...user, alamat });
+        } else {
+            const index = users.findIndex(item => item.id === idSedangDiedit);
+            if (index !== -1) {
+                users[index] = { ...users[index], nama: user.nama, email: user.email, alamat: user.address };
+            }
+        }
+
+        tampilkanUsers();
+        tutupForm();
+    } catch (error) {
+        tampilkanError(error);
+    }
+});
+
+function periksaRespons(response){
+    return response.json().then(data => {
+        if (!response.ok) throw new Error(data.message || "Operasi database gagal");
+        return data;
+    });
+}
+
+function tampilkanError(error){
+    document.getElementById("hasil").innerHTML =
+        `<tr><td colspan="5" style="color:red;text-align:center">${error.message}</td></tr>`;
+}
+
+</script>
+
+</body>
+</html>
